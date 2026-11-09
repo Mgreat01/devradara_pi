@@ -48,4 +48,18 @@ class RadarApiTest {
         mvc.perform(get("/api/v1/radar/-invalide").header("Origin", "https://inconnu.test"))
                 .andExpect(status().isForbidden());
     }
+    @Test void limiteLesRequetesParAdresseAvecUnDelaiDeReprise() throws Exception {
+        for (int request = 0; request < 20; request++) {
+            mvc.perform(get("/api/v1/radar/-invalide").with(req -> {
+                req.setRemoteAddr("192.0.2.42");
+                return req;
+            })).andExpect(status().isBadRequest());
+        }
+        mvc.perform(get("/api/v1/radar/-invalide").with(req -> {
+            req.setRemoteAddr("192.0.2.42");
+            return req;
+        })).andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "60"))
+                .andExpect(jsonPath("$.status").value(429));
+    }
 }
