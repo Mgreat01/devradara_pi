@@ -1,0 +1,44 @@
+package fr.devradar;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import java.time.Instant;
+import java.util.List;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class RadarServiceTest {
+    private final GitHubClient github = mock(GitHubClient.class);
+    private final SnapshotStore store = mock(SnapshotStore.class);
+    private final RadarService service = new RadarService(github, store);
+    private final ObjectMapper json = new ObjectMapper();
+    @Test void calculeUnSignalTransparentEtReutiliseLeCache() throws Exception {
+        when(github.user("alice")).thenReturn(json.readTree("{\"login\":\"alice\",\"public_repos\":3}"));
+        when(github.repositories("alice")).thenReturn(List.of(
+            json.readTree("{\"name\":\"api\",\"language\":\"Java\",\"stargazers_count\":9,\"description\":\"API\"}"),
+            json.readTree("{\"name\":\"fork\",\"fork\":true,\"stargazers_count\":999}"),
+            json.readTree("{\"name\":\"app\",\"language\":\"Dart\",\"stargazers_count\":0}")));
+        when(github.events("alice")).thenReturn(List.of(
+            json.readTree("{\"created_at\":\"" + Instant.now() + "\"}"),
+            json.readTree("{\"created_at\":\"2020-01-01T00:00:00Z\"}")));
+        Radar radar = service.find("Alice");
+        assertThat(radar.stars()).isEqualTo(9);
+        assertThat(radar.observedEvents30Days()).isEqualTo(1);
+        assertThat(radar.streakDays()).isEqualTo(1);
+        assertThat(radar.score()).isEqualTo(23); // 4 + 5 + 1 + 13
+        assertThat(radar.languages()).allSatisfy(l -> assertThat(l.pct()).isEqualTo(50));
+        assertThat(service.find("ALICE")).isSameAs(radar);
+        verify(github, times(1)).user("alice");
+        verify(store).save(radar);
+    }
+    @Test void refuseUnPseudoInvalideAvantToutAppelReseau() {
+        assertThatThrownBy(() -> service.find("../secret")).hasMessageContaining("400");
+        verifyNoInteractions(github, store);
+    }
+    @Test void unProfilVidePossedeUnScoreNul() throws Exception {
+        when(github.user("empty")).thenReturn(json.readTree("{\"login\":\"empty\"}"));
+        when(github.repositories("empty")).thenReturn(List.of());
+        when(github.events("empty")).thenReturn(List.of());
+        assertThat(service.find("empty").score()).isZero();
+    }
+}
