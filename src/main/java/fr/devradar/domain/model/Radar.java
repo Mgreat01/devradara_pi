@@ -1,4 +1,4 @@
-package fr.devradar;
+package fr.devradar.domain.model;
 
 import java.time.Instant;
 import java.util.List;
