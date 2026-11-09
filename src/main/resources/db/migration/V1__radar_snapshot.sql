@@ -1,0 +1,5 @@
+CREATE TABLE radar_snapshot (
+    username VARCHAR(39) PRIMARY KEY,
+    score INTEGER NOT NULL CHECK (score BETWEEN 0 AND 100),
+    observed_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
