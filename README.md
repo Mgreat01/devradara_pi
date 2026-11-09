@@ -61,7 +61,7 @@ Des guides détaillés `.md` sont disponibles localement mais exclus de Git, con
 
 ## Organisation du code
 
-`domain/model` et `domain/service` portent le mod?le et le contrat m?tier.
-`data/implementation` impl?mente le service ; `data/repository` encapsule GitHub et SQL.
+`domain/model` et `domain/service` portent le modèle et le contrat métier.
+`data/implementation` implémente le service ; `data/repository` encapsule GitHub et SQL.
 `presentation/controller`, `presentation/dto` et `presentation/config` exposent l'API.
-Le contr?leur d?pend de l'interface du domaine. La carte est r?utilis?e directement sans entity en double.
+Le contrôleur dépend de l'interface du domaine. La carte est réutilisée sans entity en double.
