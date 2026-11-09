@@ -1,4 +1,4 @@
-package fr.devradar;
+package fr.devradar.presentation.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
