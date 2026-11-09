@@ -1,5 +1,11 @@
 package fr.devradar;
 
+import fr.devradar.domain.model.Radar;
+import fr.devradar.data.repository.GitHubClient;
+import fr.devradar.data.repository.SnapshotRepository;
+import fr.devradar.data.implementation.RadarServiceImpl;
+
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import java.time.Instant;
@@ -9,8 +15,8 @@ import static org.mockito.Mockito.*;
 
 class RadarServiceTest {
     private final GitHubClient github = mock(GitHubClient.class);
-    private final SnapshotStore store = mock(SnapshotStore.class);
-    private final RadarService service = new RadarService(github, store);
+    private final SnapshotRepository store = mock(SnapshotRepository.class);
+    private final RadarServiceImpl service = new RadarServiceImpl(github, store);
     private final ObjectMapper json = new ObjectMapper();
     @Test void calculeUnSignalTransparentEtReutiliseLeCache() throws Exception {
         when(github.user("alice")).thenReturn(json.readTree("{\"login\":\"alice\",\"public_repos\":3}"));
