@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: devradar
+      POSTGRES_USER: devradar
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Définir DATABASE_PASSWORD}
+    volumes:
+      - radar-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U devradar"]
+      interval: 5s
+      retries: 10
+  api:
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/devradar
+      DATABASE_USER: devradar
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  radar-data:
