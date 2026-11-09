@@ -58,3 +58,10 @@ Flutter → REST → Controller → Service → GitHub REST
 CI fournie ; aucun déploiement ni badge de succès n'est revendiqué avant exécution distante.
 Le temps de réponse dépend de GitHub et d'un éventuel démarrage à froid : aucune garantie de 2 secondes.
 Des guides détaillés `.md` sont disponibles localement mais exclus de Git, conformément au choix du projet.
+
+## Organisation du code
+
+`domain/model` et `domain/service` portent le mod?le et le contrat m?tier.
+`data/implementation` impl?mente le service ; `data/repository` encapsule GitHub et SQL.
+`presentation/controller`, `presentation/dto` et `presentation/config` exposent l'API.
+Le contr?leur d?pend de l'interface du domaine. La carte est r?utilis?e directement sans entity en double.
