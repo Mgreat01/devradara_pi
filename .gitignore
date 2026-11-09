@@ -3,4 +3,4 @@ target/
 .env
 *.log
 *.md
-!README.md
+!/README.md
