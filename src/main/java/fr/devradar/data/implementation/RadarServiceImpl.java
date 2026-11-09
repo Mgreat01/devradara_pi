@@ -1,5 +1,9 @@
-package fr.devradar;
+package fr.devradar.data.implementation;
 
+import fr.devradar.domain.model.Radar;
+import fr.devradar.domain.service.RadarService;
+import fr.devradar.data.repository.GitHubClient;
+import fr.devradar.data.repository.SnapshotRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,12 +15,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class RadarService {
+public class RadarServiceImpl implements RadarService {
     private final GitHubClient github;
-    private final SnapshotStore snapshots;
+    private final SnapshotRepository snapshots;
     private final Cache<String, Radar> cache = Caffeine.newBuilder()
             .maximumSize(1000).expireAfterWrite(Duration.ofMinutes(15)).build();
-    public RadarService(GitHubClient github, SnapshotStore snapshots) {
+    public RadarServiceImpl(GitHubClient github, SnapshotRepository snapshots) {
         this.github = github;
         this.snapshots = snapshots;
     }
