@@ -1,4 +1,4 @@
-package fr.devradar;
+package fr.devradar.data.repository;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
