@@ -12,8 +12,8 @@ public class DiscoveryController {
         return discovery.analyzed(technology, domain, minimumStars, activeDays, page);
     }
     @GetMapping
-    public DiscoveryService.Result search(@RequestParam(defaultValue="") String language, @RequestParam(defaultValue="") String location,
-        @RequestParam(defaultValue="0") int minimumRepos, @RequestParam(defaultValue="1") int page, @RequestParam(defaultValue="followers") String sort) {
-        return discovery.search(language, location, minimumRepos, page, sort);
+    public DiscoveryService.Result search(@RequestParam(defaultValue="") String q, @RequestParam(defaultValue="") String language, @RequestParam(defaultValue="") String location,
+        @RequestParam(defaultValue="0") int minimumRepos, @RequestParam(defaultValue="1") int page, @RequestParam(defaultValue="best_match") String sort) {
+        return discovery.search(q, language, location, minimumRepos, page, sort);
     }
 }
