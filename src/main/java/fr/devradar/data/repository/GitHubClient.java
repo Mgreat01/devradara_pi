@@ -54,7 +54,7 @@ public class GitHubClient {
         return get("/repos/" + owner + "/" + repo + "/git/blobs/" + sha);
     }
     public JsonNode search(String query, int page, String sort) {
-        return get("/search/users?q=" + encode(query) + "&per_page=10&page=" + page + "&sort=" + sort);
+        return get("/search/users?q=" + encode(query) + "&per_page=10&page=" + page + (sort.equals("best_match") ? "" : "&sort=" + sort));
     }
     private static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20"); }
     private List<JsonNode> pages(String path, int maximum) {
@@ -62,7 +62,7 @@ public class GitHubClient {
             var result = new ArrayList<JsonNode>();
             for (int page = 1; page <= maximum; page++) {
                 var nodes = get(path + "&page=" + page);
-                if (!nodes.isArray()) throw unavailable("Réponse GitHub inattendue.", 0);
+                if (!nodes.isArray()) throw unavailable("RÃ©ponse GitHub inattendue.", 0);
                 nodes.forEach(result::add);
                 if (nodes.size() < 100) break;
             }
@@ -72,14 +72,14 @@ public class GitHubClient {
     private synchronized void reserve(String family) {
         long now = System.currentTimeMillis();
         long pause = cooldowns.getOrDefault(family, 0L);
-        if (pause > now) throw unavailable("GitHub est momentanément indisponible.", (pause - now + 999) / 1000);
+        if (pause > now) throw unavailable("GitHub est momentanÃ©ment indisponible.", (pause - now + 999) / 1000);
         Window w = windows.computeIfAbsent(family, key -> new Window());
         if (now - w.minute >= 60_000) { w.minute = now; w.perMinute = 0; }
         if (now - w.hour >= 3_600_000) { w.hour = now; w.perHour = 0; }
         int minuteLimit = family.equals("search") ? 5 : 60;
         int hourLimit = family.equals("search") || token.isBlank() ? 50 : 3500;
         if (w.perMinute >= minuteLimit || w.perHour >= hourLimit)
-            throw unavailable("Le service a atteint sa limite de consultation. Réessayez plus tard.",
+            throw unavailable("Le service a atteint sa limite de consultation. RÃ©essayez plus tard.",
                 w.perHour >= hourLimit ? (3_600_000 - now + w.hour) / 1000 + 1 : (60_000 - now + w.minute) / 1000 + 1);
         w.perMinute++; w.perHour++;
     }
@@ -88,7 +88,7 @@ public class GitHubClient {
             Budget b = budget.get();
             long remaining = b.deadline - System.nanoTime();
             if (++b.calls > 18 || remaining < Duration.ofMillis(100).toNanos())
-                throw unavailable("La collecte a atteint sa limite. Les données disponibles sont conservées.", 30);
+                throw unavailable("La collecte a atteint sa limite. Les donnÃ©es disponibles sont conservÃ©es.", 30);
             String family = path.startsWith("/search/") ? "search" : "core";
             reserve(family);
             var request = HttpRequest.newBuilder(URI.create(base + path))
@@ -106,16 +106,16 @@ public class GitHubClient {
                         seconds = Math.max(seconds, response.headers().firstValueAsLong("X-RateLimit-Reset").orElse(0) - Instant.now().getEpochSecond());
                     seconds = Math.max(1, Math.min(3600, seconds));
                     synchronized (this) { cooldowns.put(family, System.currentTimeMillis() + seconds * 1000); }
-                    throw unavailable("GitHub est momentanément indisponible. Réessayez plus tard.", seconds);
+                    throw unavailable("GitHub est momentanÃ©ment indisponible. RÃ©essayez plus tard.", seconds);
                 }
-                if (status == 422) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Cette recherche n’est pas acceptée par GitHub.");
-                if (status < 200 || status >= 300) throw unavailable("GitHub est momentanément indisponible.", 0);
+                if (status == 422) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Cette recherche nâ€™est pas acceptÃ©e par GitHub.");
+                if (status < 200 || status >= 300) throw unavailable("GitHub est momentanÃ©ment indisponible.", 0);
                 var json = mapper.readTree(response.body());
-                if (json == null) throw unavailable("Réponse GitHub vide.", 0);
+                if (json == null) throw unavailable("RÃ©ponse GitHub vide.", 0);
                 return json;
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                throw unavailable("La consultation a été interrompue.", 0);
+                throw unavailable("La consultation a Ã©tÃ© interrompue.", 0);
             } catch (java.io.IOException | IllegalArgumentException ex) {
                 throw unavailable("Impossible de joindre GitHub pour le moment.", 0);
             }
@@ -130,7 +130,7 @@ public class GitHubClient {
             }
         };
     }
-    /** Annule la réponse avant de conserver plus de 1 Mio, y compris pour les arbres volumineux. */
+    /** Annule la rÃ©ponse avant de conserver plus de 1 Mio, y compris pour les arbres volumineux. */
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {
         private final CompletableFuture<byte[]> body = new CompletableFuture<>();
         private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -140,7 +140,7 @@ public class GitHubClient {
         public void onNext(List<ByteBuffer> buffers) {
             for (var buffer : buffers) {
                 if (bytes.size() + buffer.remaining() > 1_048_576) {
-                    subscription.cancel(); body.completeExceptionally(new java.io.IOException("Réponse trop volumineuse")); return;
+                    subscription.cancel(); body.completeExceptionally(new java.io.IOException("RÃ©ponse trop volumineuse")); return;
                 }
                 byte[] chunk = new byte[buffer.remaining()]; buffer.get(chunk); bytes.writeBytes(chunk);
             }

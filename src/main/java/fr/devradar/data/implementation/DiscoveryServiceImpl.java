@@ -25,28 +25,54 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             .filter(p -> p.technologies().stream().anyMatch(t -> t.name().toLowerCase(Locale.ROOT).contains(tech) && t.domain().toLowerCase(Locale.ROOT).contains(area)) || (tech.isBlank() && area.isBlank()))
             .map(p -> p.owner().toLowerCase(Locale.ROOT)).distinct().sorted().toList();
         return new Result(users.stream().skip((long) (page - 1) * 10).limit(10).map(name -> new User(name, "", "https://github.com/" + name)).toList(), page, users.size(), false, 5,
-            "Filtres appliqués aux projets analysés encore en mémoire (24 h maximum, cache vidé au redémarrage). Étoiles et activité concernent un projet correspondant, pas tout le profil. Aucun appel GitHub supplémentaire pour ce filtrage.");
+            "Filtres appliquÃ©s aux projets analysÃ©s encore en mÃ©moire (24 h maximum, cache vidÃ© au redÃ©marrage). Ã‰toiles et activitÃ© concernent un projet correspondant, pas tout le profil. Aucun appel GitHub supplÃ©mentaire pour ce filtrage.");
     }
     private boolean recent(String pushedAt, int days) {
         try { return !java.time.Instant.parse(pushedAt).isBefore(java.time.Instant.now().minus(java.time.Duration.ofDays(days))); }
         catch (java.time.DateTimeException ex) { return false; }
     }
-    public Result search(String language, String location, int minimumRepos, int page, String sort) {
+    private String normalizeTerm(String term) {
+        String value = term.trim();
+        if (value.startsWith("github.com/")) value = "https://" + value;
+        if (value.contains("://")) {
+            try {
+                var uri = java.net.URI.create(value);
+                if (!Set.of("http", "https").contains(uri.getScheme()) || !"github.com".equalsIgnoreCase(uri.getHost()) || uri.getUserInfo() != null)
+                    throw new IllegalArgumentException();
+                value = uri.getPath().replaceAll("^/|/$", "");
+                if (!value.matches("[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?")) throw new IllegalArgumentException();
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Utilisez le lien d’un profil GitHub.");
+            }
+        }
+        if (value.startsWith("@")) value = value.substring(1);
+        value = value.replaceAll("\\s+", " ");
+        if (!value.matches("[\\p{L}\\p{N} ._'’-]{0,80}") || value.matches("(?i).*(?:^| )(?:AND|OR|NOT)(?: |$).*"))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Saisissez un nom ou un pseudo, sans opérateur de recherche.");
+        return value;
+    }
+    public Result search(String term, String language, String location, int minimumRepos, int page, String sort) {
+        term = normalizeTerm(term);
         language = language.trim(); location = location.trim();
-        if (!language.matches("[\\p{L}\\p{N} ._+#/-]{0,40}") || !location.matches("[\\p{L}\\p{N} ._'-]{0,60}") ||
-            minimumRepos < 0 || minimumRepos > 10000 || page < 1 || page > 5 || !Set.of("followers", "repositories", "joined").contains(sort))
+        if (!language.matches("[\\p{L}\\p{N} ._+#/-]{0,40}") || !location.matches("[\\p{L}\\p{N} ._,'’-]{0,60}") ||
+            minimumRepos < 0 || minimumRepos > 10000 || page < 1 || page > 5 || !Set.of("best_match", "followers", "repositories", "joined").contains(sort))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Filtres de recherche invalides.");
-        String query = "type:user repos:>=" + minimumRepos + (language.isBlank() ? "" : " language:\"" + language + "\"") +
+        String query = "type:user" + (minimumRepos == 0 ? "" : " repos:>=" + minimumRepos)
+            + (term.isBlank() ? "" : " " + Arrays.stream(term.split(" +")).map(word -> "\"" + word + "\"").collect(java.util.stream.Collectors.joining(" ")) + " in:login,name") + (language.isBlank() ? "" : " language:\"" + language + "\"") +
             (location.isBlank() ? "" : " location:\"" + location + "\"");
         return cache.get(query + "|" + page + "|" + sort, key -> {
             var response = github.search(query, page, sort);
+            if (response == null || !response.path("items").isArray() || !response.path("total_count").canConvertToLong() || response.path("total_count").asLong() < 0)
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "La recherche est indisponible pour le moment.");
             var items = new ArrayList<User>();
             for (var user : response.path("items")) {
                 if (items.size() >= 10) break;
-                items.add(new User(user.path("login").asText(), user.path("avatar_url").asText(""), user.path("html_url").asText("")));
+                String login = user.path("login").asText();
+                if (!login.matches("[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?")) continue;
+                items.add(new User(login, user.path("avatar_url").asText(""), user.path("html_url").asText("")));
             }
             return new Result(items, page, response.path("total_count").asLong(), response.path("incomplete_results").asBoolean(), 5,
-                "Recherche GitHub limitée à 50 résultats, sans analyse automatique des profils. Les filtres décrivent les données publiques indexées par GitHub ; aucune spécialisation professionnelle n’est garantie.");
+                "Recherche GitHub limitÃ©e Ã  50 rÃ©sultats, sans analyse automatique des profils. Les filtres dÃ©crivent les donnÃ©es publiques indexÃ©es par GitHub ; aucune spÃ©cialisation professionnelle nâ€™est garantie.");
         });
     }
 }
