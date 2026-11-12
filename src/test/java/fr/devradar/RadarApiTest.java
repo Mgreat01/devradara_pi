@@ -24,6 +24,14 @@ class RadarApiTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @MockitoBean GitHubClient github;
+    @Test void exposeLaRechercheParNomSansCasserLesAnciensFiltres() throws Exception {
+        when(github.search(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.eq("best_match")))
+            .thenReturn(json.readTree("{\"items\":[{\"login\":\"Mgreat01\"}],\"total_count\":1}"));
+        mvc.perform(get("/api/v1/discovery").param("q", "Mgreat01"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].username").value("Mgreat01"));
+        mvc.perform(get("/api/v1/discovery").param("q", "user:root"))
+            .andExpect(status().isBadRequest());
+    }
     @Test void exposeCarteScoreEtComparaison() throws Exception {
         for (String username : List.of("alice", "bob")) {
             when(github.user(username)).thenReturn(json.readTree("{\"login\":\"" + username + "\"}"));
