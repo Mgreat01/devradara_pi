@@ -6,6 +6,7 @@ RUN mvn -B verify
 FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S radar && adduser -S radar -G radar
 WORKDIR /app
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20"
 COPY --from=build /build/target/devradar-api-0.1.0.jar app.jar
 USER radar
 EXPOSE 8080
