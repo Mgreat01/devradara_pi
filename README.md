@@ -69,3 +69,22 @@ mvn verify
 ```
 
 Les tests couvrent le calcul du score, l’exclusion des forks, le cache, la validation des pseudos, SQL, la santé du service et CORS.
+
+## Analyses complémentaires
+
+Le calcul historique du score reste compatible. Les nouvelles analyses sont déclenchées à la demande et donnent leurs sources et leurs limites.
+
+| Route GET | Résultat |
+| --- | --- |
+| `/api/v1/radar/{username}/intelligence` | Profil enrichi et indicateurs documentés |
+| `/api/v1/repositories/{owner}/{repo}/intelligence` | Technologies et indices de maturité du dépôt |
+| `/api/v1/radar/{username}/evolution?days=30` | Observations réellement enregistrées |
+| `/api/v1/radar/{username}/wrapped?year=2026` | Bilan des observations de l’année |
+| `/api/v1/discovery` | Recherche GitHub paginée |
+| `/api/v1/discovery/analyzed` | Filtres sur les analyses présentes en cache |
+
+L’analyse d’un dépôt examine au plus trois manifestes racine de 100 Kio chacun et un arbre limité à 2 000 entrées. Chaque requête entrante dispose d’un budget partagé de 18 appels GitHub et 30 secondes. Les analyses sont mises en cache et les refus de quota respectent un délai avant nouvel appel.
+
+L’historique ajoute au plus une observation complète par jour et par compte, pendant 365 jours, avec une borne globale de 5 000 observations. Les jours manquants ne sont pas inventés. Une migration Flyway additive conserve la table existante.
+
+L’ensemble utilise le service Spring Boot et la base existante, sans tâche planifiée ni infrastructure supplémentaire. Une technologie détectée ou un score ne prouve pas la maîtrise professionnelle d’une personne. Les filtres techniques portent sur les analyses encore en cache ; ils ne constituent pas un index exhaustif de GitHub.
