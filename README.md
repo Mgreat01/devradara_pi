@@ -88,3 +88,5 @@ L’analyse d’un dépôt examine au plus trois manifestes racine de 100 Kio ch
 L’historique ajoute au plus une observation complète par jour et par compte, pendant 365 jours, avec une borne globale de 5 000 observations. Les jours manquants ne sont pas inventés. Une migration Flyway additive conserve la table existante.
 
 L’ensemble utilise le service Spring Boot et la base existante, sans tâche planifiée ni infrastructure supplémentaire. Une technologie détectée ou un score ne prouve pas la maîtrise professionnelle d’une personne. Les filtres techniques portent sur les analyses encore en cache ; ils ne constituent pas un index exhaustif de GitHub.
+
+La recherche de profils accepte `q` (nom, pseudo, `@pseudo` ou lien GitHub), avec des filtres `language`, `location`, `minimumRepos` et `page`. Le tri par défaut est la pertinence ; `sort=followers|repositories|joined` permet un tri explicite. Les filtres se cumulent. Les recherches sont mises en cache, sans enrichissement automatique des comptes retournés.
