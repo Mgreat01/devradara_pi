@@ -38,6 +38,7 @@ class RadarApiTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.b.username").value("bob"));
     }
     @Test void demarreAvecMigrationEtExposeLaSante() throws Exception {
+        mvc.perform(get("/actuator/health/liveness")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
         mvc.perform(get("/actuator/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
     }
     @Test void retourneUneErreurStructureePourUnPseudoInvalide() throws Exception {
