@@ -32,7 +32,10 @@ class GitHubClientTest {
             assertThat(client.user("alice").path("login").asText()).isEqualTo("alice");
             assertThat(client.repositories("alice")).isEmpty();
             assertThatThrownBy(() -> client.user("missing")).isInstanceOf(ResponseStatusException.class).hasMessageContaining("404");
-            assertThatThrownBy(() -> client.user("quota")).isInstanceOf(ResponseStatusException.class).hasMessageContaining("503");
+            assertThatThrownBy(() -> client.user("quota")).isInstanceOf(ResponseStatusException.class).hasMessageContaining("503")
+                .satisfies(error -> assertThat(((ResponseStatusException) error).getHeaders().getFirst("Retry-After")).isEqualTo("60"));
+            // Le délai est partagé : aucune nouvelle requête GitHub ne doit partir pendant la pause.
+            assertThatThrownBy(() -> client.user("alice")).isInstanceOf(ResponseStatusException.class).hasMessageContaining("503");
         } finally { server.stop(0); }
     }
 }

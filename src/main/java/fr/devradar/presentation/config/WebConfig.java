@@ -14,7 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
     private final String[] origins;
-    public WebConfig(@Value("${devradar.allowed-origins}") String origins) { this.origins = origins.split(","); }
+    private final fr.devradar.data.repository.GitHubClient github;
+    public WebConfig(@Value("${devradar.allowed-origins}") String origins, fr.devradar.data.repository.GitHubClient github) { this.origins = origins.split(","); this.github = github; }
     @Override public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**").allowedOrigins(origins).allowedMethods("GET");
     }
@@ -24,13 +25,14 @@ public class WebConfig implements WebMvcConfigurer {
                     .maximumSize(10000).expireAfterWrite(Duration.ofMinutes(1)).build();
             @Override public boolean preHandle(HttpServletRequest req, HttpServletResponse res, Object handler) throws Exception {
                 if (req.getMethod().equals("OPTIONS")) return true;
-                if (requests.get(req.getRemoteAddr(), ip -> new AtomicInteger()).incrementAndGet() <= 20) return true;
+                if (requests.get(req.getRemoteAddr(), ip -> new AtomicInteger()).incrementAndGet() <= 20) { github.beginBudget(); return true; }
                 res.setStatus(429);
                 res.setHeader("Retry-After", "60");
                 res.setContentType("application/problem+json;charset=UTF-8");
                 res.getWriter().write("{\"status\":429,\"title\":\"Trop de requêtes\",\"detail\":\"Réessayez dans une minute.\"}");
                 return false;
             }
+            @Override public void afterCompletion(HttpServletRequest req, HttpServletResponse res, Object handler, Exception ex) { github.endBudget(); }
         }).addPathPatterns("/api/**");
     }
 }
