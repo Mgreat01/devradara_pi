@@ -38,4 +38,22 @@ class GitHubClientTest {
             assertThatThrownBy(() -> client.user("alice")).isInstanceOf(ResponseStatusException.class).hasMessageContaining("503");
         } finally { server.stop(0); }
     }
+    @Test void arreteLaCollecteAvantUnDixNeuviemeAppel() throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        server.createContext("/users/", exchange -> {
+            calls.incrementAndGet(); byte[] bytes = "{}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, bytes.length); exchange.getResponseBody().write(bytes); exchange.close();
+        });
+        server.start();
+        try {
+            var client = new GitHubClient("http://127.0.0.1:" + server.getAddress().getPort(), "");
+            client.withinBudget(() -> {
+                for (int i = 0; i < 18; i++) client.user("alice");
+                assertThatThrownBy(() -> client.user("alice")).isInstanceOf(ResponseStatusException.class);
+                return null;
+            });
+            assertThat(calls.get()).isEqualTo(18);
+        } finally { server.stop(0); }
+    }
 }

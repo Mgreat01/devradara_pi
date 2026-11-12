@@ -34,4 +34,31 @@ class IntelligenceTest {
         assertThatThrownBy(() -> discovery.search("Java", "", 0, 6, "followers")).hasMessageContaining("400");
         verifyNoInteractions(client);
     }
+    @Test void detecteFlutterDansLesDependancesEtSpringDansGradle() {
+        assertThat(TechnologyDetector.detect("pubspec.yaml", "name: flutter\ndependencies:\n  http: ^1.0.0\n", "a/b", Instant.now(), "sha")).isEmpty();
+        assertThat(TechnologyDetector.detect("pubspec.yaml", "name: app\ndependencies:\n  flutter:\n    sdk: flutter\n", "a/b", Instant.now(), "sha")).extracting(d -> d.name()).contains("Flutter");
+        assertThat(TechnologyDetector.detect("build.gradle", "plugins { id 'org.springframework.boot' version '3.5' }", "a/b", Instant.now(), "sha")).extracting(d -> d.name()).contains("Spring Boot");
+        assertThatThrownBy(() -> TechnologyDetector.detect("pom.xml", "<!DOCTYPE x SYSTEM 'file:///inexistant'><project/>", "a/b", Instant.now(), "sha")).isInstanceOf(IllegalArgumentException.class);
+    }
+    @Test void respecteLaTailleDesManifestesEtCalculeLesCriteresVerifiables() throws Exception {
+        var client = mock(GitHubClient.class);
+        when(client.repository("alice", "web")).thenReturn(json.readTree("{\"name\":\"web\"}"));
+        when(client.tree(anyString(), anyString(), anyString())).thenReturn(json.readTree("{\"sha\":\"ref\",\"truncated\":false,\"tree\":[{\"path\":\"package.json\",\"type\":\"blob\",\"size\":200000,\"sha\":\"big\"},{\"path\":\"README.md\",\"type\":\"blob\"},{\"path\":\"src/test/test.java\",\"type\":\"blob\"}]}"));
+        var result = new IntelligenceServiceImpl(client).repository("alice", "web");
+        assertThat(result.complete()).isFalse();
+        assertThat(result.maturity()).isEqualTo(33);
+        assertThat(result.technologies()).isEmpty();
+        verify(client, never()).blob(anyString(), anyString(), anyString());
+    }
+    @Test void filtreLesAnalysesConnuesSansNouvelleCollecteGitHub() throws Exception {
+        var github = mock(GitHubClient.class);
+        var intelligence = mock(fr.devradar.domain.service.IntelligenceService.class);
+        var project = new fr.devradar.domain.model.RepositoryIntelligence("alice", "app", "https://github.com/alice/app", "", "Dart", 12, 0, 1, "", Instant.now().toString(), "MIT", false, Instant.now(), "sha", true,
+            java.util.List.of(new fr.devradar.domain.model.RepositoryIntelligence.Detection("Flutter", "Mobile", "alice/app", "pubspec.yaml", "dependency", "élevée", Instant.now(), "sha")), java.util.List.of(), 50, java.util.List.of());
+        when(intelligence.observed()).thenReturn(java.util.List.of(project));
+        var discovery = new DiscoveryServiceImpl(github, intelligence);
+        assertThat(discovery.analyzed("Flutter", "Mobile", 10, 30, 1).items()).extracting(u -> u.username()).containsExactly("alice");
+        assertThat(discovery.analyzed("Spring Boot", "", 0, 0, 1).items()).isEmpty();
+        verifyNoInteractions(github);
+    }
 }
