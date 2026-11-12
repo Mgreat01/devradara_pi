@@ -4,4 +4,5 @@ import java.util.List;
 public interface IntelligenceService {
     RepositoryIntelligence repository(String owner, String repo);
     List<RepositoryIntelligence> known(String username);
+    List<RepositoryIntelligence> observed();
 }

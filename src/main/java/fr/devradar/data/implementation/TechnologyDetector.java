@@ -22,6 +22,8 @@ public final class TechnologyDetector {
         new Rule("django", "Django", "Backend"), new Rule("fastapi", "FastAPI", "Backend"),
         new Rule("pandas", "pandas", "Data Engineering"), new Rule("apache-airflow", "Apache Airflow", "Data Engineering"),
         new Rule("torch", "PyTorch", "Machine Learning"), new Rule("tensorflow", "TensorFlow", "Machine Learning"),
+        new Rule("ethers", "ethers", "Blockchain"), new Rule("web3", "Web3", "Blockchain"),
+        new Rule("embedded-hal", "Embedded HAL", "Embedded Systems"), new Rule("yara-python", "YARA", "Cybersecurity"),
         new Rule("actix-web", "Actix Web", "Backend"), new Rule("axum", "Axum", "Backend"));
     public static List<Detection> detect(String path, String content, String repository, Instant at, String ref) {
         Set<String> dependencies = new HashSet<>();
@@ -55,17 +57,18 @@ public final class TechnologyDetector {
                     String token = Pattern.quote(rule.dependency());
                     boolean declared = Pattern.compile("(?im)(?:^|[^a-z0-9_-])" + token + "(?:[^a-z0-9_-]|$)").matcher(content).find();
                     if (declared) dependencies.add(rule.dependency());
+                    if (rule.dependency().equals("spring-boot") && (content.contains("org.springframework.boot") || content.contains("spring-boot-starter"))) dependencies.add("spring-boot");
                 }
                 method = "Marqueur de dépendance dans le manifeste (lecture statique)";
             }
-        } catch (Exception ex) { return List.of(); }
+        } catch (Exception ex) { throw new IllegalArgumentException("Manifeste illisible", ex); }
         List<Detection> result = new ArrayList<>();
         for (Rule rule : RULES) {
             if (dependencies.stream().anyMatch(value -> value.equals(rule.dependency()) ||
                 (rule.dependency().equals("spring-boot") && value.startsWith("spring-boot-")) ||
                 (rule.dependency().equals("nestjs") && value.startsWith("@nestjs/"))))
                 result.add(new Detection(rule.technology(), rule.domain(), repository, path, method,
-                    path.equals("package.json") || path.equals("pom.xml") ? "élevée" : "moyenne", at, ref));
+                    path.equals("package.json") || path.equals("pom.xml") || path.equals("pubspec.yaml") ? "élevée" : "moyenne", at, ref));
         }
         return result;
     }

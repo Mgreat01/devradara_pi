@@ -36,6 +36,7 @@ public class IntelligenceServiceImpl implements IntelligenceService {
         return cache.asMap().values().stream().filter(r -> r.owner().equalsIgnoreCase(username))
             .sorted(Comparator.comparing(RepositoryIntelligence::name)).toList();
     }
+    public List<RepositoryIntelligence> observed() { return List.copyOf(cache.asMap().values()); }
     private RepositoryIntelligence load(String owner, String repo) {
         if (!gate.tryAcquire()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Une analyse est déjà en cours. Réessayez dans un instant.");
         try { return analyze(owner, repo); } finally { gate.release(); }
@@ -57,6 +58,7 @@ public class IntelligenceServiceImpl implements IntelligenceService {
                 if (entry.path("type").asText().equals("blob")) entries.put(entry.path("path").asText(), entry);
             }
         } catch (ResponseStatusException ex) { complete = false; warnings.add("La liste complète des fichiers n’a pas pu être consultée."); }
+        boolean treeComplete = complete;
         var detections = new ArrayList<Detection>();
         int inspected = 0;
         for (String path : MANIFESTS) {
@@ -73,6 +75,9 @@ public class IntelligenceServiceImpl implements IntelligenceService {
             } catch (ResponseStatusException | IllegalArgumentException ex) { complete = false; warnings.add(path + " n’a pas pu être analysé."); }
         }
         if (entries.containsKey("Dockerfile")) detections.add(new Detection("Docker", "DevOps", owner + "/" + repo, "Dockerfile", "Présence du fichier", "moyenne", at, ref));
+        for (String path : List.of("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")) {
+            if (entries.containsKey(path)) detections.add(new Detection("Docker Compose", "DevOps", owner + "/" + repo, path, "Présence du fichier", "moyenne", at, ref));
+        }
         var paths = entries.keySet().stream().map(v -> v.toLowerCase(Locale.ROOT)).toList();
         var checks = new ArrayList<Check>();
         String[] keys = {"readme", "tests", "license", "ci", "docs", "versions"};
@@ -80,12 +85,12 @@ public class IntelligenceServiceImpl implements IntelligenceService {
         boolean[] found = {
             paths.stream().anyMatch(p -> p.matches("(^|.*/)readme(?:\\.[^/]*)?")),
             paths.stream().anyMatch(p -> p.matches(".*(?:^|/)(?:test|tests|__tests__)/.*") || p.endsWith("_test.dart") || p.endsWith("test.java")),
-            !metadata.path("license").isNull() && !metadata.path("license").isMissingNode(),
+            (!metadata.path("license").isNull() && !metadata.path("license").isMissingNode()) || paths.stream().anyMatch(p -> p.matches("(^|.*/)(license|copying)(?:\\.[^/]*)?")),
             paths.stream().anyMatch(p -> p.startsWith(".github/workflows/") || p.equals(".gitlab-ci.yml")),
             paths.stream().anyMatch(p -> p.startsWith("docs/") || p.startsWith("documentation/")),
             paths.stream().anyMatch(p -> p.startsWith("changelog") || p.startsWith("changes."))
         };
-        for (int i = 0; i < keys.length; i++) checks.add(new Check(keys[i], labels[i], found[i] ? Boolean.TRUE : complete ? Boolean.FALSE : null));
+        for (int i = 0; i < keys.length; i++) checks.add(new Check(keys[i], labels[i], found[i] ? Boolean.TRUE : treeComplete ? Boolean.FALSE : null));
         Integer maturity = checks.stream().anyMatch(c -> c.present() == null) ? null :
             (int) Math.round(100.0 * checks.stream().filter(c -> Boolean.TRUE.equals(c.present())).count() / checks.size());
         warnings.add("Lecture statique de trois manifestes racine au maximum (100 Kio chacun). Les monorepos et dépendances indirectes peuvent être incomplets.");
