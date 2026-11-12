@@ -62,4 +62,15 @@ class RadarApiTest {
                 .andExpect(header().string("Retry-After", "60"))
                 .andExpect(jsonPath("$.status").value(429));
     }
+    @Test void conserveUneObservationQuotidienneEtPreserveLesRoutes() throws Exception {
+        when(github.user("history")).thenReturn(json.readTree("{\"login\":\"history\"}"));
+        when(github.repositories("history")).thenReturn(List.of());
+        when(github.events("history")).thenReturn(List.of());
+        mvc.perform(get("/api/v1/radar/history")).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/radar/history/evolution").param("days", "30"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.points.length()").value(1));
+        mvc.perform(get("/api/v1/radar/history/intelligence")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.indicators.length()").value(5));
+        mvc.perform(get("/api/v1/radar/history/evolution").param("days", "9999")).andExpect(status().isBadRequest());
+    }
 }

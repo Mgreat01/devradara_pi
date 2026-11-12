@@ -47,4 +47,20 @@ class RadarServiceTest {
         when(github.events("empty")).thenReturn(List.of());
         assertThat(service.find("empty").score()).isZero();
     }
+    @Test void conserveLeProfilQuandLesEvenementsSontIndisponibles() throws Exception {
+        when(github.user("alice")).thenReturn(json.readTree("{\"login\":\"alice\",\"bio\":\"Développeuse\"}"));
+        when(github.repositories("alice")).thenReturn(List.of());
+        when(github.events("alice")).thenThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+        var radar = service.find("alice");
+        assertThat(radar.coverage().eventsAvailable()).isFalse();
+        assertThat(radar.details().bio()).isEqualTo("Développeuse");
+        verifyNoInteractions(store);
+    }
+    @Test void unePanneSqlNeBloquePasLaConsultation() throws Exception {
+        when(github.user("alice")).thenReturn(json.readTree("{\"login\":\"alice\"}"));
+        when(github.repositories("alice")).thenReturn(List.of());
+        when(github.events("alice")).thenReturn(List.of());
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("indisponible")).when(store).save(any());
+        assertThat(service.find("alice").username()).isEqualTo("alice");
+    }
 }
