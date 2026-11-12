@@ -38,16 +38,20 @@ public class RadarServiceImpl implements RadarService {
     }
     private Radar collect(String username) {
         var user = github.user(username);
+        if (user == null || !user.isObject() || user.path("login").asText("").isBlank())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Le profil reçu est incomplet.");
         boolean reposAvailable = true, eventsAvailable = true;
         List<JsonNode> allRepos = List.of(), rawEvents = List.of();
         try { allRepos = github.repositories(username); } catch (ResponseStatusException ex) { reposAvailable = false; }
         try { rawEvents = github.events(username); } catch (ResponseStatusException ex) { eventsAvailable = false; }
         var repos = allRepos.stream().filter(r -> !r.path("fork").asBoolean()).toList();
         Instant now = Instant.now();
+        var invalidEvent = new java.util.concurrent.atomic.AtomicBoolean();
         var events = rawEvents.stream().filter(e -> {
             try { return !Instant.parse(e.path("created_at").asText()).isBefore(now.minus(Duration.ofDays(30))); }
-            catch (DateTimeException ex) { return false; }
+            catch (DateTimeException ex) { invalidEvent.set(true); return false; }
         }).toList();
+        if (invalidEvent.get()) eventsAvailable = false;
         long stars = repos.stream().mapToLong(r -> r.path("stargazers_count").asLong()).sum();
         var counts = repos.stream().filter(r -> !r.path("language").asText("").isBlank())
                 .collect(Collectors.groupingBy(r -> r.path("language").asText(), Collectors.counting()));

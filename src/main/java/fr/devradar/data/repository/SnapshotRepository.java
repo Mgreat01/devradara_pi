@@ -31,15 +31,16 @@ public class SnapshotRepository implements fr.devradar.domain.service.EvolutionS
             jdbc.update("delete from profile_observation where observed_at < ?", java.sql.Timestamp.from(Instant.now().minus(Duration.ofDays(365))));
             lastCleanup = now;
         }
+        String name = radar.username().toLowerCase(Locale.ROOT);
         var day = java.sql.Date.valueOf(radar.cachedAt().atZone(ZoneOffset.UTC).toLocalDate());
-        if (jdbc.queryForObject("select count(*) from profile_observation where username = ? and observation_day = ?", Integer.class, radar.username(), day) > 0) return;
+        if (jdbc.queryForObject("select count(*) from profile_observation where username = ? and observation_day = ?", Integer.class, name, day) > 0) return;
         if (jdbc.queryForObject("select count(*) from profile_observation", Integer.class) >= 5000) return;
         try {
             String languages = json.writeValueAsString(radar.languages());
             String ids = json.writeValueAsString(repositoryIds.stream().distinct().limit(500).toList());
             if (languages.length() > 8192 || ids.length() > 8192) return;
             jdbc.update("insert into profile_observation(username, observation_day, observed_at, score, stars, repositories, events, languages_json, repository_ids_json, truncated) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                radar.username(), day, java.sql.Timestamp.from(radar.cachedAt()), radar.score(), radar.stars(), radar.publicRepos(), radar.observedEvents30Days(),
+                name, day, java.sql.Timestamp.from(radar.cachedAt()), radar.score(), radar.stars(), radar.publicRepos(), radar.observedEvents30Days(),
                 languages, ids, radar.coverage().repositoriesTruncated());
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) { throw new IllegalStateException("Observation invalide", ex); }
     }
